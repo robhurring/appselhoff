@@ -147,5 +147,3 @@ module Appselhoff
 end
 
 at_exit{ Appselhoff.run! }
-
-# p Appselhoff::Session.make
