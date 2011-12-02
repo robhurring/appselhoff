@@ -3,4 +3,4 @@
 Small project using macruby and coredata to monitor application usage.
 I will add more stuff to this when I have time.
 
-![screenshot](ss.png)
+![screenshot](https://github.com/robhurring/appselhoff/blob/master/ss.png)
