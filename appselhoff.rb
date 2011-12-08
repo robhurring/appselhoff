@@ -3,8 +3,6 @@ framework 'Cocoa'
 module Appselhoff
   extend self
   
-  trap(:INT){ self.terminate }
-  
   def run!
     @active_app = []
 
@@ -15,6 +13,8 @@ module Appselhoff
   end
 
   def terminate
+    puts "Bye!"
+    
     if @watcher
       @watcher.cleanup!
       DataStore.save
@@ -193,4 +193,5 @@ module Appselhoff
   end
 end
 
+trap(:INT){ Appselhoff.terminate }
 at_exit{ Appselhoff.run! }
