@@ -6,29 +6,10 @@ module Appselhoff
   trap(:INT){ self.terminate }
   
   def run!
-    active_app = []
+    @active_app = []
+
     @watcher = Watcher.new
-    
-    # watch for activation notifications
-    @watcher.subscribe :did_activate_application do |app|
-      name = app.localizedName
-
-      unless active_app.empty?
-        old_app, old_time = active_app
-        old_app_name = old_app.localizedName
-        usage = (Time.now - old_time).round
-
-        if usage > 0
-          session = Session.find_by_name(old_app_name) || Session.make
-          session.application = old_app_name
-          session.seconds ||= 0
-          session.seconds += usage
-          puts "Used: #{session.application} for #{usage} second(s) [#{session.seconds}s total usage]"
-        end
-      end
-
-      active_app = [app, Time.now]
-    end
+    @watcher.subscribe :did_activate_application, &method(:activated)
 
     NSRunLoop.currentRunLoop.run
   end
@@ -40,6 +21,26 @@ module Appselhoff
     end
     
     exit 0
+  end
+  
+  def activated(app)
+    name = app.localizedName
+
+    unless @active_app.empty?
+      old_app, old_time = @active_app
+      old_app_name = old_app.localizedName
+      usage = (Time.now - old_time).round
+
+      if usage > 0
+        session = Session.find_by_name(old_app_name) || Session.make
+        session.application = old_app_name
+        session.seconds ||= 0
+        session.seconds += usage
+        puts "Used: #{session.application} for #{usage} second(s) [#{session.seconds}s total usage]"
+      end
+    end
+
+    @active_app = [app, Time.now]
   end
 
   # http://developer.apple.com/library/mac/#documentation/Cocoa/Reference/ApplicationKit/Classes/NSWorkspace_Class/Reference/Reference.html
