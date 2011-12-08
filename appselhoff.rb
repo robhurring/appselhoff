@@ -6,58 +6,104 @@ module Appselhoff
   trap(:INT){ self.terminate }
   
   def run!
-    @watcher = Watcher.new(self)
-    NSRunLoop.currentRunLoop.run
-  end
-  
-  def terminate
-    DataStore.save
-    exit 0
-  end
-  
-  # http://developer.apple.com/library/mac/#documentation/Cocoa/Reference/ApplicationKit/Classes/NSWorkspace_Class/Reference/Reference.html
-  class Watcher
-    Observe = {
-      NSWorkspaceDidActivateApplicationNotification => 'active:'
-    }
+    active_app = []
+    @watcher = Watcher.new
     
-    def initialize(delegate)
-      @delegate = delegate
-      @active = []
-      add_observers
-    end
-
-    def active(notice)
-      app = notice_app(notice)
+    # watch for activation notifications
+    @watcher.subscribe :did_activate_application do |app|
       name = app.localizedName
-      
-      unless @active.empty?
-        old_app, old_time = @active
+
+      unless active_app.empty?
+        old_app, old_time = active_app
+        old_app_name = old_app.localizedName
         usage = (Time.now - old_time).round
-        
-        unless usage.zero?
-          session = Session.find_by_name(old_app) || Session.make
-          session.application = old_app
+
+        if usage > 0
+          session = Session.find_by_name(old_app_name) || Session.make
+          session.application = old_app_name
           session.seconds ||= 0
           session.seconds += usage
-
           puts "Used: #{session.application} for #{usage} second(s) [#{session.seconds}s total usage]"
         end
       end
-      
-      @active = [name, Time.now]
+
+      active_app = [app, Time.now]
     end
 
+    NSRunLoop.currentRunLoop.run
+  end
+
+  def terminate
+    if @watcher
+      @watcher.cleanup!
+      DataStore.save
+    end
+    
+    exit 0
+  end
+
+  # http://developer.apple.com/library/mac/#documentation/Cocoa/Reference/ApplicationKit/Classes/NSWorkspace_Class/Reference/Reference.html
+  class Watcher
+    Notifications = {
+      will_launch_application: NSWorkspaceWillLaunchApplicationNotification,
+      did_launch_application: NSWorkspaceDidLaunchApplicationNotification,
+      did_terminate_application: NSWorkspaceDidTerminateApplicationNotification,
+      did_activate_application: NSWorkspaceDidActivateApplicationNotification,
+      did_deactivate_application: NSWorkspaceDidDeactivateApplicationNotification,
+      did_hide_application: NSWorkspaceDidHideApplicationNotification,
+      did_unhide_application: NSWorkspaceDidUnhideApplicationNotification,
+      session_did_become_activate: NSWorkspaceSessionDidBecomeActiveNotification,
+      session_did_resign_active: NSWorkspaceSessionDidResignActiveNotification,
+      did_hide_application: NSWorkspaceDidHideApplicationNotification,
+      did_rename_volume: NSWorkspaceDidRenameVolumeNotification,
+      did_mount: NSWorkspaceDidMountNotification,
+      will_unmount: NSWorkspaceWillUnmountNotification,
+      did_unmount: NSWorkspaceDidUnmountNotification,
+      did_perform_file_operation: NSWorkspaceDidPerformFileOperationNotification,
+      did_change_file_labels: NSWorkspaceDidChangeFileLabelsNotification,
+      active_space_did_change: NSWorkspaceActiveSpaceDidChangeNotification,
+      did_wake: NSWorkspaceDidWakeNotification,
+      will_power_off: NSWorkspaceWillPowerOffNotification,
+      will_sleep: NSWorkspaceWillSleepNotification,
+      screen_did_sleep: NSWorkspaceScreensDidSleepNotification,
+      screen_did_wake: NSWorkspaceScreensDidWakeNotification
+    }
+    
+    def initialize
+      @subscriptions = []
+      @observed = []
+    end
+    
+    def subscribe(notification, &callback)
+      @subscriptions << {notification: Notifications[notification], callback: callback}
+      observe notification
+    end
+    
+    def cleanup!
+      remove_observers
+    end
+    
   private
   
-    def notice_app(notice)
-      notice.userInfo['NSWorkspaceApplicationKey']
+    def dispatch(notification)
+      app = notification.userInfo['NSWorkspaceApplicationKey']
+      @subscriptions.each do |sub|
+        next if sub[:notification].to_s != notification.name
+        sub[:callback].call(app)
+      end
     end
-  
-    def add_observers
+    
+    def remove_observers
       nc = NSWorkspace.sharedWorkspace.notificationCenter
-      Observe.each do |notification, selector|
-        nc.addObserver self, selector: selector, name: notification, object: nil
+      nc.removeObserver(self)
+    end
+    
+    def observe(notification)
+      return if @observed.include?(notification)
+      
+      nc = NSWorkspace.sharedWorkspace.notificationCenter
+      if nc.addObserver self, selector: 'dispatch:', name: Notifications[notification], object: nil
+        @observed << notification
       end
     end
   end
