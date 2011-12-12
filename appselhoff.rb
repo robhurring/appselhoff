@@ -107,7 +107,27 @@ module Appselhoff
     end
   end
   
-  class Session < NSManagedObject    
+  class Session < NSManagedObject
+    def self.to_entity
+      session_entity = NSEntityDescription.new
+      session_entity.name = 'Session'
+      session_entity.managedObjectClassName = 'Session'
+
+      app_attribute = NSAttributeDescription.new
+      app_attribute.name = 'application'
+      app_attribute.attributeType = NSStringAttributeType
+      app_attribute.optional = false
+
+      sec_attribute = NSAttributeDescription.new
+      sec_attribute.name = 'seconds'
+      sec_attribute.attributeType = NSInteger32AttributeType
+      sec_attribute.defaultValue = 0
+
+      session_entity.properties = [app_attribute, sec_attribute]
+
+      session_entity
+    end
+    
     def self.find_by_name(app_name)
       results = self.where('application = %@', app_name)
       results.empty? ? nil : results.first
@@ -139,6 +159,7 @@ module Appselhoff
   class DataStore
     DataFile = 'data.db'
     StoreType = NSSQLiteStoreType
+    Models = [Session]
     
     def self.save
       error = Pointer.new_with_type('@')
@@ -147,27 +168,9 @@ module Appselhoff
 
     def self.managed_object_model
       @model ||= begin
-        model = NSManagedObjectModel.new
-
-        # create the entity
-        session_entity = NSEntityDescription.new
-        session_entity.name = "Session"
-        session_entity.managedObjectClassName = "Session"
-        model.entities = [session_entity]
-
-        app_attribute = NSAttributeDescription.new
-        app_attribute.name = "application"
-        app_attribute.attributeType = NSStringAttributeType
-        app_attribute.optional = false
-
-        sec_attribute = NSAttributeDescription.new
-        sec_attribute.name = "seconds"
-        sec_attribute.attributeType = NSInteger32AttributeType
-        sec_attribute.defaultValue = 0
-
-        session_entity.properties = [app_attribute, sec_attribute]
-
-        model
+        managed_model = NSManagedObjectModel.new
+        managed_model.entities = Models.map{ |m| m.to_entity }
+        managed_model
       end
     end
     
