@@ -32,9 +32,7 @@ module Appselhoff
       usage = (Time.now - old_time).round
 
       if usage > 0
-        session = Session.find_by_name(old_app_name) || Session.make
-        session.application = old_app_name
-        session.seconds ||= 0
+        session = Session.find_by_name(old_app_name) || Session.buildWithApplication(old_app_name)
         session.seconds += usage
         puts "Used: #{session.application} for #{usage} second(s) [#{session.seconds}s total usage]"
       end
@@ -115,10 +113,13 @@ module Appselhoff
       results.empty? ? nil : results.first
     end
     
-    def self.make
+    def self.buildWithApplication(app_name)
       context = Appselhoff::DataStore.context
       desc = NSEntityDescription.entityForName('Session', inManagedObjectContext: context)
       session = Session.alloc.initWithEntity(desc, insertIntoManagedObjectContext: context)
+      session.application = app_name
+      session.seconds = 0
+      session
     end
 
     def self.where(*args)
