@@ -145,7 +145,7 @@ module Appselhoff
     def self.where(*args)
       context = Appselhoff::DataStore.context
       entity = NSEntityDescription.entityForName('Session', inManagedObjectContext: context)
-      pred = NSPredicate.predicateWithFormat *args
+      pred = NSPredicate.predicateWithFormat(*args)
 
       request = NSFetchRequest.alloc.init 
       request.entity = entity
