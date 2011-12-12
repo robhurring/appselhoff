@@ -183,12 +183,12 @@ module Appselhoff
 
         url = NSURL.fileURLWithPath(DataFile)
 
-        # pointer trick, translate the NSError *error declaration
         error = Pointer.new_with_type('@')
         new_store = coordinator.addPersistentStoreWithType(StoreType, configuration: nil, URL: url, options: nil, error: error)
             
         unless new_store
           puts "Store configuration error"
+          exit 1
         end 
         
         context
